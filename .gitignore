@@ -1,0 +1,4 @@
+*.gch
+*.gch.stale
+*.pch
+.DS_Store
