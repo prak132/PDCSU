@@ -199,7 +199,13 @@ inline void ICNORLearner::loadAsync() {
 }
 
 inline void ICNORLearner::saveAsync() {
-  waitForIO();
+  {
+    std::lock_guard<std::mutex> io_lock(io_mutex_);
+    if (io_future_.valid() && io_future_.wait_for(std::chrono::seconds(0)) !=
+                                  std::future_status::ready) {
+      return;
+    }
+  }
 
   std::string path;
   std::string data;
