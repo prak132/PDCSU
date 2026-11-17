@@ -613,7 +613,7 @@ public:
         "pdcsu::units::Unit::operator% requires matching (L,M,T,I,R); compare "
         "__pdcsu_units_lhs_dims vs __pdcsu_units_rhs_dims and "
         "__pdcsu_units_lhs_tags vs __pdcsu_units_rhs_tags.");
-    return Unit(detail::fmod_fast(value(), o.value()));
+    return Unit::from_base(detail::fmod_fast(base_value_, o.to_base()));
   }
 
   Unit operator%(int s) const {
@@ -762,8 +762,30 @@ template <typename Fac, typename L, typename M, typename T, typename I,
 constexpr auto u_pow(
     const Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag> &u,
     double exp) {
+  static_assert(detail::fraction_is_zero_v<L> &&
+                    detail::fraction_is_zero_v<M> &&
+                    detail::fraction_is_zero_v<T> &&
+                    detail::fraction_is_zero_v<I> &&
+                    detail::fraction_is_zero_v<R>,
+      "u_pow(u, exp) with a runtime exponent needs a dimensionless unit; use "
+      "u_pow<Num, Den>(u) for units with dimensions.");
   return Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag>::from_base(
       std::pow(u.to_base(), exp));
+}
+
+// Power with a compile-time rational exponent
+template <std::int64_t Num, std::int64_t Den = 1, typename Fac, typename L,
+    typename M, typename T, typename I, typename R, typename LTag,
+    typename MTag, typename TTag, typename ITag, typename RTag>
+constexpr auto u_pow(
+    const Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag> &u) {
+  using Exp = detail::Fraction<Num, Den>;
+  using ResultUnit = Unit<detail::Fraction<1>,
+      detail::fraction_multiply_t<L, Exp>, detail::fraction_multiply_t<M, Exp>,
+      detail::fraction_multiply_t<T, Exp>, detail::fraction_multiply_t<I, Exp>,
+      detail::fraction_multiply_t<R, Exp>>;
+  return ResultUnit::from_base(
+      std::pow(u.to_base(), static_cast<double>(Num) / Den));
 }
 
 // Floor operation
@@ -772,8 +794,8 @@ template <typename Fac, typename L, typename M, typename T, typename I,
     typename RTag>
 static inline Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag> u_floor(
     const Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag> &u) {
-  return Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag>::from_base(
-      std::floor(u.to_base()));
+  return Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag>(
+      std::floor(u.value()));
 }
 
 // Ceiling operation
@@ -782,8 +804,8 @@ template <typename Fac, typename L, typename M, typename T, typename I,
     typename RTag>
 static inline Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag> u_ceil(
     const Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag> &u) {
-  return Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag>::from_base(
-      std::ceil(u.to_base()));
+  return Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag>(
+      std::ceil(u.value()));
 }
 
 // Round
@@ -792,8 +814,8 @@ template <typename Fac, typename L, typename M, typename T, typename I,
     typename RTag>
 static inline Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag> u_round(
     const Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag> &u) {
-  return Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag>::from_base(
-      std::round(u.to_base()));
+  return Unit<Fac, L, M, T, I, R, LTag, MTag, TTag, ITag, RTag>(
+      std::round(u.value()));
 }
 
 // Square root
@@ -807,10 +829,9 @@ constexpr auto u_sqrt(
   using ResultT = detail::fraction_multiply_t<T, detail::Fraction<1, 2>>;
   using ResultI = detail::fraction_multiply_t<I, detail::Fraction<1, 2>>;
   using ResultR = detail::fraction_multiply_t<R, detail::Fraction<1, 2>>;
-  using ResultUnit = Unit<Fac, ResultL, ResultM, ResultT, ResultI, ResultR,
-      LTag, MTag, TTag, ITag, RTag>;
-  const double sqrt_factor = std::sqrt(Fac::num * 1.0 / Fac::den);
-  return ResultUnit::from_base(std::sqrt(u.to_base()) * sqrt_factor);
+  using ResultUnit = Unit<detail::Fraction<1>, ResultL, ResultM, ResultT,
+      ResultI, ResultR>;
+  return ResultUnit::from_base(std::sqrt(u.to_base()));
 }
 
 // Copysign

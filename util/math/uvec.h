@@ -4,7 +4,8 @@
 #include <cmath>
 #include <string>
 #include <type_traits>
-#include <vector>
+#include <algorithm>
+#include <array>
 
 #include "../units.h"
 
@@ -29,11 +30,11 @@ template <typename UT, size_t N> class uVec {
   using T = UT;
 
 private:
-  std::vector<T> data;
+  std::array<T, N> data;
 
 public:
   // Default constructor initializes with zeros
-  uVec() : data{N, T()} {}
+  uVec() : data{} {}
 
   // Constructs an N-dimensional vector from N unit-type values
   uVec(std::initializer_list<T> dims) : uVec() {
@@ -188,7 +189,7 @@ public:
 
   // Returns the unit vector of this vector
   [[nodiscard]] uVec<UT, N> unit() const {
-    return *this / magnitude().to_base();
+    return *this / magnitude().value();
   }
 
   // Projects this vector onto another and returns
@@ -202,11 +203,9 @@ public:
   template <typename UT2>
   [[nodiscard]] uVec<UT2, N> projectOntoThis(const uVec<UT2, N>& other) const {
     assert(N == 2 && "Projection is only defined for 2D vectors.");
-    double unit_x = unit()[0].to_base();
-    double unit_y = unit()[1].to_base();
-    auto dot_result = dot(other);
-    return {UT2::from_base(unit_x * dot_result.to_base()),
-        UT2::from_base(unit_y * dot_result.to_base())};
+    double scale = dot(other).to_base() / dot(*this).to_base();
+    return {UT2::from_base(data[0].to_base() * scale),
+        UT2::from_base(data[1].to_base() * scale)};
   }
 
   // Returns the angle of this vector
